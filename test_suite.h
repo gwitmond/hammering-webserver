@@ -1,6 +1,6 @@
 // This file is copied from:
 // https://github.com/UpstandingHackers/hammer/blob/master/src/test_suite.h
-// And remains licensed under this GPL 2 license.
+// This code and my changes are licensed under the GPL 2 license.
 // -- Guido.
 
 /* Test suite for Hammer.
