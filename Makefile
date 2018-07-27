@@ -13,7 +13,7 @@ http.o:	http.c http.h parser-helpers.h
 
 test.o: test.c json.h http.h parser-helpers.h test_suite.h
 
-btest: test.o json.o http.o
+btest: test.o libhammering.a
 	gcc ${CFLAGS} -o $@ $^
 
 test: btest

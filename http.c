@@ -54,20 +54,31 @@ HParser *lws() {
 HParsedToken *sequence_to_bytes(const HParseResult *p, void *user_data) {
   assert(TT_SEQUENCE == p->ast->token_type);
   // printf("\nunamb seq: %s\n", h_write_result_unamb(p->ast));
-  HParsedToken *seq = h_seq_flatten(p->arena, p->ast);
+  const HParsedToken *seq = h_seq_flatten(p->arena, p->ast);
   size_t len = h_seq_len(seq);
-  uint8_t *arr = h_arena_malloc(p->arena, len +1); // +1 for \0
+  return token_to_bytes(p->arena, seq, user_data);
+}
+
+HParsedToken *token_to_bytes(HArena *arena, const HParsedToken *t, void *user_data) {
+  assert(TT_SEQUENCE == t->token_type);
+  // printf("\nunamb seq: %s\n", h_write_result_unamb(t));
+  const HParsedToken *seq = h_seq_flatten(arena, t);
+  size_t len = h_seq_len(seq);
+  
+  //uint8_t *arr = h_arena_malloc(p->arena, len +1); // +1 for \0
+  uint8_t *arr = h_arena_malloc(arena, len +1); // +1 for \0
   for (uint8_t i=0; i < len; i++) {
     arr[i] = h_seq_index(seq, i)->uint;
   }
   arr[len] = 0; // make it a printf-able c-string
 
-  HParsedToken *t = h_arena_malloc(p->arena, sizeof(HParsedToken));
-  t->token_type = TT_BYTES;
-  t->bytes.len = len; // don't mention the \0 so len == strlen(arr) 
-  t->bytes.token = arr;
-  // printf("unamb res: %s\n", h_write_result_unamb(t));
-  return t;
+  //HParsedToken *t = h_arena_malloc(p->arena, sizeof(HParsedToken));
+  HParsedToken *ret = h_arena_malloc(arena, sizeof(HParsedToken));
+  ret->token_type = TT_BYTES;
+  ret->bytes.len = len; // don't mention the \0 so len == strlen(arr) 
+  ret->bytes.token = arr;
+  // printf("unamb res: %s\n", h_write_result_unamb(ret));
+  return ret;
 }
 
 
@@ -116,15 +127,21 @@ HParser *any_header_value() {
 
 PF_RULE(general_header, header(any_header_name(), any_header_value()));
 
+// Header name
+// Match that the name is valid,
+// Return a parser for the name
+HParser *header_name(uint8_t *name) {
+  // Test the name against the allowed syntax for header names
+  assert(NULL != h_parse(END(any_header_name()), name, strlen(name)));
+  return h_token(name, strlen(name));
+}
 
 //-----------------------------------------
 // Named headers
 // Match only a header with a specified name.
 // Matches any header value.
 HParser *named_header(uint8_t *name) {
-  // Test the name against the allowed syntax for header names
-  assert(NULL != h_parse(END(any_header_name()), name, strlen(name)));
-  return header(h_token(name, strlen(name)), any_header_value());
+  return header(header_name(name), any_header_value());
 }
 
 //-----------------------------------------
@@ -274,6 +291,7 @@ HParser *post(uint8_t* url, HParser *header_p, HParser *body) {
  * It matches any valid response
  * Caller needs to validate all data returned.
  * Returns: tuple: (status code, headers, body)
+ * TODO: rename to: any_http_response
  */
 PF_RULE(http_response, h_sequence(status_line(any_status_code()),
 				  h_many(h_choice(response_header(),
